@@ -5,6 +5,7 @@ const { ipcRenderer } = require('electron');
 const TOOLBAR_ID = 'chess-desktop-mini-toolbar';
 const STYLE_ID = 'chess-desktop-mini-style';
 const BOARD_MARKER = 'data-chess-desktop-mini-board';
+const CLOCK_MARKER = 'data-chess-desktop-mini-clock';
 const BOARD_ONLY_CLASS = 'chess-desktop-mini-board-only';
 const SETTINGS_CLASS = 'chess-mini-settings';
 const DEFAULT_SHORTCUTS = Object.freeze({
@@ -23,6 +24,7 @@ const SHORTCUT_ACTIONS = Object.freeze([
 let boardModeEnabled = true;
 let manuallyForced = false;
 let currentBoard = null;
+let currentClocks = [];
 let refreshQueued = false;
 let boardOnlyActive = false;
 let shortcuts = { ...DEFAULT_SHORTCUTS };
@@ -241,6 +243,8 @@ function injectStyle() {
 
     body.${BOARD_ONLY_CLASS} [${BOARD_MARKER}],
     body.${BOARD_ONLY_CLASS} [${BOARD_MARKER}] *,
+    body.${BOARD_ONLY_CLASS} [${CLOCK_MARKER}],
+    body.${BOARD_ONLY_CLASS} [${CLOCK_MARKER}] *,
     body.${BOARD_ONLY_CLASS} #${TOOLBAR_ID},
     body.${BOARD_ONLY_CLASS} #${TOOLBAR_ID} * {
       visibility: visible !important;
@@ -251,8 +255,8 @@ function injectStyle() {
       z-index: 2147483000 !important;
       top: 50% !important;
       left: 50% !important;
-      width: min(100vw, 100vh) !important;
-      height: min(100vw, 100vh) !important;
+      width: min(100vw, calc(100vh - 76px)) !important;
+      height: min(100vw, calc(100vh - 76px)) !important;
       min-width: 0 !important;
       min-height: 0 !important;
       max-width: none !important;
@@ -261,6 +265,25 @@ function injectStyle() {
       padding: 0 !important;
       transform: translate(-50%, -50%) !important;
       border: 0 !important;
+    }
+
+    body.${BOARD_ONLY_CLASS} [${CLOCK_MARKER}] {
+      position: fixed !important;
+      z-index: 2147483001 !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      margin: 0 !important;
+      max-width: min(100vw, calc(100vh - 76px)) !important;
+    }
+
+    body.${BOARD_ONLY_CLASS} [${CLOCK_MARKER}][data-chess-mini-clock-pos="top"] {
+      top: 6px !important;
+      bottom: auto !important;
+    }
+
+    body.${BOARD_ONLY_CLASS} [${CLOCK_MARKER}][data-chess-mini-clock-pos="bottom"] {
+      bottom: 6px !important;
+      top: auto !important;
     }
 
     body.${BOARD_ONLY_CLASS} [role="dialog"],
@@ -622,6 +645,67 @@ function findBoard() {
   return null;
 }
 
+function findClocks() {
+  const board = currentBoard;
+  if (!board) return [];
+
+  const boardRect = board.getBoundingClientRect();
+  const boardCenterY = boardRect.top + boardRect.height / 2;
+  const seen = new Set();
+  const found = [];
+
+  const selectors = [
+    '.clock-component',
+    '[class*="clock-component"]',
+    '[class*="clockComponent"]',
+    '[data-cy="clock-black"]',
+    '[data-cy="clock-white"]',
+    '[class*="clock-"][class*="player"]'
+  ];
+
+  for (const selector of selectors) {
+    for (const node of document.querySelectorAll(selector)) {
+      if (node.closest(`#${TOOLBAR_ID}`)) continue;
+      if (board.contains(node) || node.contains(board)) continue;
+
+      // Prefer the outermost clock container to keep styling intact.
+      let clock = node;
+      const container = node.closest('[class*="clock-component"], [class*="clock-player"]');
+      if (container && !board.contains(container)) clock = container;
+
+      if (seen.has(clock)) continue;
+
+      const rect = clock.getBoundingClientRect();
+      if (rect.width < 20 || rect.height < 10) continue;
+
+      seen.add(clock);
+      const pos = (rect.top + rect.height / 2) < boardCenterY ? 'top' : 'bottom';
+      found.push({ clock, pos });
+    }
+  }
+
+  return found;
+}
+
+function updateClocks(active) {
+  const next = active ? findClocks() : [];
+  const nextSet = new Set(next.map((entry) => entry.clock));
+
+  for (const clock of currentClocks) {
+    if (!nextSet.has(clock)) {
+      clock.removeAttribute(CLOCK_MARKER);
+      clock.removeAttribute('data-chess-mini-clock-pos');
+    }
+  }
+
+  for (const { clock, pos } of next) {
+    clock.setAttribute(CLOCK_MARKER, '');
+    clock.setAttribute('data-chess-mini-clock-pos', pos);
+  }
+
+  currentClocks = [...nextSet];
+}
+
 function looksLikeActiveGame() {
   return /^\/(game|daily)\//.test(location.pathname) ||
     Boolean(document.querySelector('[class*="clock"][class*="active"], [data-cy*="clock"]'));
@@ -643,6 +727,7 @@ function applyBoardMode() {
 
   const active = boardModeEnabled && Boolean(currentBoard) && (manuallyForced || looksLikeActiveGame());
   document.body.classList.toggle(BOARD_ONLY_CLASS, active);
+  updateClocks(active);
 
   const toggle = document.querySelector(`#${TOOLBAR_ID} [data-action="board-toggle"]`);
   if (toggle) {
