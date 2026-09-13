@@ -116,6 +116,10 @@ async function runSmokeTest(win) {
 
   await new Promise((resolve) => setTimeout(resolve, 500));
 
+  const clockScreenshot = await win.webContents.capturePage();
+  const clockScreenshotPath = path.join(app.getPath('temp'), 'chess-desktop-mini-clocks.png');
+  fs.writeFileSync(clockScreenshotPath, clockScreenshot.toPNG());
+
   const controls = await win.webContents.executeJavaScript(`(() => {
     const toolbar = document.getElementById('chess-desktop-mini-toolbar');
     const settings = toolbar?.querySelector('[data-action="settings"]')?.getBoundingClientRect();
@@ -172,6 +176,20 @@ async function runSmokeTest(win) {
   const result = await win.webContents.executeJavaScript(`(() => {
     const board = document.querySelector('[data-chess-desktop-mini-board]');
     const toolbar = document.getElementById('chess-desktop-mini-toolbar');
+    const clocks = [...document.querySelectorAll('#chess-desktop-mini-clocks .chess-mini-clock[data-present="true"]')]
+      .map((clock) => {
+        const rect = clock.getBoundingClientRect();
+        const style = getComputedStyle(clock);
+        return {
+          position: clock.dataset.position,
+          text: clock.textContent.trim(),
+          width: Math.round(rect.width),
+          height: Math.round(rect.height),
+          visible: style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) > 0,
+          color: style.color,
+          background: style.backgroundColor
+        };
+      });
     const rect = board?.getBoundingClientRect();
     return {
       url: location.href,
@@ -183,6 +201,7 @@ async function runSmokeTest(win) {
       boardOnly: document.body.classList.contains('chess-desktop-mini-board-only'),
       boardWidth: Math.round(rect?.width || 0),
       boardHeight: Math.round(rect?.height || 0),
+      clocks,
       viewport: [innerWidth, innerHeight]
     };
   })()`);
@@ -196,9 +215,17 @@ async function runSmokeTest(win) {
   const passed = result.toolbar && result.settingsButton && result.settingsOpen &&
     result.shortcutRows === 4 && result.dragMoved && result.controlsFound &&
     result.board && result.boardOnly &&
-    result.boardWidth >= MIN_SIZE && Math.abs(result.boardWidth - result.boardHeight) <= 2;
+    result.boardWidth >= 180 && Math.abs(result.boardWidth - result.boardHeight) <= 2 &&
+    result.clocks.length === 2 &&
+    result.clocks.every((clock) => clock.text && clock.height >= 30 && clock.visible) &&
+    new Set(result.clocks.map((clock) => clock.position)).size === 2;
 
-  console.log(`CHESS_MINI_SMOKE ${JSON.stringify({ ...result, screenshotPath, passed })}`);
+  console.log(`CHESS_MINI_SMOKE ${JSON.stringify({
+    ...result,
+    screenshotPath,
+    clockScreenshotPath,
+    passed
+  })}`);
   app.exit(passed ? 0 : 1);
 }
 

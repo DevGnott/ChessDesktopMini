@@ -3,9 +3,9 @@
 const { ipcRenderer } = require('electron');
 
 const TOOLBAR_ID = 'chess-desktop-mini-toolbar';
+const CLOCKS_ID = 'chess-desktop-mini-clocks';
 const STYLE_ID = 'chess-desktop-mini-style';
 const BOARD_MARKER = 'data-chess-desktop-mini-board';
-const CLOCK_MARKER = 'data-chess-desktop-mini-clock';
 const BOARD_ONLY_CLASS = 'chess-desktop-mini-board-only';
 const SETTINGS_CLASS = 'chess-mini-settings';
 const DEFAULT_SHORTCUTS = Object.freeze({
@@ -24,7 +24,6 @@ const SHORTCUT_ACTIONS = Object.freeze([
 let boardModeEnabled = true;
 let manuallyForced = false;
 let currentBoard = null;
-let currentClocks = [];
 let refreshQueued = false;
 let boardOnlyActive = false;
 let shortcuts = { ...DEFAULT_SHORTCUTS };
@@ -233,6 +232,7 @@ function injectStyle() {
     }
 
     body.${BOARD_ONLY_CLASS} {
+      --chess-mini-board-size: min(100vw, calc(100vh - 88px));
       overflow: hidden !important;
       background: #20201f !important;
     }
@@ -243,8 +243,8 @@ function injectStyle() {
 
     body.${BOARD_ONLY_CLASS} [${BOARD_MARKER}],
     body.${BOARD_ONLY_CLASS} [${BOARD_MARKER}] *,
-    body.${BOARD_ONLY_CLASS} [${CLOCK_MARKER}],
-    body.${BOARD_ONLY_CLASS} [${CLOCK_MARKER}] *,
+    body.${BOARD_ONLY_CLASS} #${CLOCKS_ID},
+    body.${BOARD_ONLY_CLASS} #${CLOCKS_ID} *,
     body.${BOARD_ONLY_CLASS} #${TOOLBAR_ID},
     body.${BOARD_ONLY_CLASS} #${TOOLBAR_ID} * {
       visibility: visible !important;
@@ -255,8 +255,8 @@ function injectStyle() {
       z-index: 2147483000 !important;
       top: 50% !important;
       left: 50% !important;
-      width: min(100vw, calc(100vh - 76px)) !important;
-      height: min(100vw, calc(100vh - 76px)) !important;
+      width: var(--chess-mini-board-size) !important;
+      height: var(--chess-mini-board-size) !important;
       min-width: 0 !important;
       min-height: 0 !important;
       max-width: none !important;
@@ -267,23 +267,64 @@ function injectStyle() {
       border: 0 !important;
     }
 
-    body.${BOARD_ONLY_CLASS} [${CLOCK_MARKER}] {
-      position: fixed !important;
-      z-index: 2147483001 !important;
-      left: 50% !important;
-      transform: translateX(-50%) !important;
-      margin: 0 !important;
-      max-width: min(100vw, calc(100vh - 76px)) !important;
+    #${CLOCKS_ID} {
+      display: none !important;
     }
 
-    body.${BOARD_ONLY_CLASS} [${CLOCK_MARKER}][data-chess-mini-clock-pos="top"] {
-      top: 6px !important;
+    body.${BOARD_ONLY_CLASS} #${CLOCKS_ID}[data-visible="true"] {
+      display: block !important;
+      visibility: visible !important;
+    }
+
+    body.${BOARD_ONLY_CLASS} #${CLOCKS_ID} .chess-mini-clock {
+      position: fixed !important;
+      z-index: 2147483001 !important;
+      right: max(6px, calc((100vw - var(--chess-mini-board-size)) / 2 + 6px)) !important;
+      width: auto !important;
+      min-width: 92px !important;
+      height: 36px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 0 10px !important;
+      margin: 0 !important;
+      border: 1px solid rgba(255, 255, 255, 0.16) !important;
+      border-radius: 8px !important;
+      background: rgba(37, 37, 35, 0.97) !important;
+      color: #f5f5f4 !important;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.38) !important;
+      font: 750 clamp(17px, 5vw, 23px)/1 ui-monospace, "SFMono-Regular", Consolas, monospace !important;
+      font-variant-numeric: tabular-nums !important;
+      letter-spacing: -0.02em !important;
+      visibility: visible !important;
+      pointer-events: none !important;
+      user-select: none !important;
+    }
+
+    body.${BOARD_ONLY_CLASS} #${CLOCKS_ID} .chess-mini-clock[data-position="top"] {
+      top: 4px !important;
       bottom: auto !important;
     }
 
-    body.${BOARD_ONLY_CLASS} [${CLOCK_MARKER}][data-chess-mini-clock-pos="bottom"] {
-      bottom: 6px !important;
+    body.${BOARD_ONLY_CLASS} #${CLOCKS_ID} .chess-mini-clock[data-position="bottom"] {
+      bottom: 4px !important;
       top: auto !important;
+    }
+
+    body.${BOARD_ONLY_CLASS} #${CLOCKS_ID} .chess-mini-clock[data-present="false"] {
+      display: none !important;
+    }
+
+    body.${BOARD_ONLY_CLASS} #${CLOCKS_ID} .chess-mini-clock[data-running="true"] {
+      border-color: rgba(173, 211, 130, 0.72) !important;
+      background: #668a47 !important;
+      color: #fff !important;
+    }
+
+    body.${BOARD_ONLY_CLASS} #${CLOCKS_ID} .chess-mini-clock[data-low="true"] {
+      border-color: #ef9a9a !important;
+      background: #a83d3d !important;
+      color: #fff !important;
     }
 
     body.${BOARD_ONLY_CLASS} [role="dialog"],
@@ -645,65 +686,113 @@ function findBoard() {
   return null;
 }
 
+function injectClockOverlay() {
+  if (!document.body || document.getElementById(CLOCKS_ID)) return;
+
+  const clocks = document.createElement('div');
+  clocks.id = CLOCKS_ID;
+  clocks.dataset.visible = 'false';
+  clocks.setAttribute('aria-label', 'Game clocks');
+
+  for (const position of ['top', 'bottom']) {
+    const clock = document.createElement('div');
+    clock.className = 'chess-mini-clock';
+    clock.dataset.position = position;
+    clock.dataset.present = 'false';
+    clock.dataset.running = 'false';
+    clock.dataset.low = 'false';
+    clock.setAttribute('role', 'timer');
+    clock.setAttribute('aria-label', position === 'top' ? 'Opponent clock' : 'Player clock');
+    clocks.appendChild(clock);
+  }
+
+  document.body.appendChild(clocks);
+}
+
+function readClockText(clock) {
+  const preferred = clock.querySelector('.clock-time-monospace, [class*="clock-time"], time');
+  const raw = (preferred?.textContent || clock.textContent || '').replace(/\s+/g, ' ').trim();
+  return raw.match(/(?:\d+:)?\d{1,2}:\d{2}(?:\.\d)?/)?.[0] || '';
+}
+
+function clockState(clock, time) {
+  const classText = [clock, ...clock.querySelectorAll('[class]')]
+    .map((node) => typeof node.className === 'string' ? node.className : '')
+    .join(' ');
+  const running = /(?:^|\s)(?:active|running|player-turn|clock-active)(?:\s|$)/i.test(classText);
+  const parts = time.split(':').map(Number);
+  const seconds = parts.length === 3
+    ? parts[0] * 3600 + parts[1] * 60 + parts[2]
+    : parts[0] * 60 + parts[1];
+  return { running, low: Number.isFinite(seconds) && seconds > 0 && seconds < 10 };
+}
+
 function findClocks() {
-  const board = currentBoard;
-  if (!board) return [];
+  if (!currentBoard) return [];
 
-  const boardRect = board.getBoundingClientRect();
-  const boardCenterY = boardRect.top + boardRect.height / 2;
+  const candidates = [];
   const seen = new Set();
-  const found = [];
-
   const selectors = [
     '.clock-component',
     '[class*="clock-component"]',
-    '[class*="clockComponent"]',
     '[data-cy="clock-black"]',
     '[data-cy="clock-white"]',
-    '[class*="clock-"][class*="player"]'
+    '[class*="player-clock"]'
   ];
 
   for (const selector of selectors) {
     for (const node of document.querySelectorAll(selector)) {
-      if (node.closest(`#${TOOLBAR_ID}`)) continue;
-      if (board.contains(node) || node.contains(board)) continue;
+      if (node.closest(`#${TOOLBAR_ID}, #${CLOCKS_ID}`)) continue;
+      if (currentBoard.contains(node) || node.contains(currentBoard)) continue;
 
-      // Prefer the outermost clock container to keep styling intact.
-      let clock = node;
-      const container = node.closest('[class*="clock-component"], [class*="clock-player"]');
-      if (container && !board.contains(container)) clock = container;
-
+      const clock = node.closest('.clock-component, [class*="clock-component"]') || node;
       if (seen.has(clock)) continue;
 
+      const text = readClockText(clock);
       const rect = clock.getBoundingClientRect();
-      if (rect.width < 20 || rect.height < 10) continue;
+      if (!text || rect.width < 20 || rect.height < 10 || getComputedStyle(clock).display === 'none') continue;
 
       seen.add(clock);
-      const pos = (rect.top + rect.height / 2) < boardCenterY ? 'top' : 'bottom';
-      found.push({ clock, pos });
+      candidates.push({ clock, text, rect });
     }
   }
 
-  return found;
+  candidates.sort((a, b) => a.rect.top - b.rect.top);
+  if (candidates.length >= 2) {
+    return [
+      { ...candidates[0], position: 'top' },
+      { ...candidates[candidates.length - 1], position: 'bottom' }
+    ];
+  }
+
+  return candidates.map((candidate) => ({
+    ...candidate,
+    position: /(?:^|\s)clock-bottom(?:\s|$)/.test(candidate.clock.className) ? 'bottom' : 'top'
+  }));
 }
 
-function updateClocks(active) {
-  const next = active ? findClocks() : [];
-  const nextSet = new Set(next.map((entry) => entry.clock));
+function updateClockOverlay(active) {
+  injectClockOverlay();
+  const overlay = document.getElementById(CLOCKS_ID);
+  if (!overlay) return;
 
-  for (const clock of currentClocks) {
-    if (!nextSet.has(clock)) {
-      clock.removeAttribute(CLOCK_MARKER);
-      clock.removeAttribute('data-chess-mini-clock-pos');
-    }
+  const sources = active ? findClocks() : [];
+  const byPosition = new Map(sources.map((source) => [source.position, source]));
+
+  for (const position of ['top', 'bottom']) {
+    const target = overlay.querySelector(`[data-position="${position}"]`);
+    const source = byPosition.get(position);
+    target.dataset.present = String(Boolean(source));
+    if (!source) continue;
+
+    const state = clockState(source.clock, source.text);
+    if (target.textContent !== source.text) target.textContent = source.text;
+    target.dataset.running = String(state.running);
+    target.dataset.low = String(state.low);
+    target.setAttribute('aria-label', `${position === 'top' ? 'Opponent' : 'Player'} clock: ${source.text}`);
   }
 
-  for (const { clock, pos } of next) {
-    clock.setAttribute(CLOCK_MARKER, '');
-    clock.setAttribute('data-chess-mini-clock-pos', pos);
-  }
-
-  currentClocks = [...nextSet];
+  overlay.dataset.visible = String(active && sources.length > 0);
 }
 
 function looksLikeActiveGame() {
@@ -727,7 +816,7 @@ function applyBoardMode() {
 
   const active = boardModeEnabled && Boolean(currentBoard) && (manuallyForced || looksLikeActiveGame());
   document.body.classList.toggle(BOARD_ONLY_CLASS, active);
-  updateClocks(active);
+  updateClockOverlay(active);
 
   const toggle = document.querySelector(`#${TOOLBAR_ID} [data-action="board-toggle"]`);
   if (toggle) {
@@ -769,6 +858,7 @@ function start() {
 
   new MutationObserver(queueRefresh).observe(document.documentElement, {
     childList: true,
+    characterData: true,
     subtree: true
   });
 

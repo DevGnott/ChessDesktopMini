@@ -1,6 +1,6 @@
 {
   "name": "chess-desktop-mini",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "A minimal, resizable Chess.com board for the desktop.",
   "main": "src/main.js",
   "desktopName": "chess-desktop-mini.desktop",
