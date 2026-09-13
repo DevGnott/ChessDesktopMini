@@ -19,6 +19,18 @@ npm install
 npm start
 ```
 
+## Build packages
+
+```bash
+# Linux AppImage
+npm run dist:linux
+
+# Windows installer and portable executable
+npm run dist:windows
+```
+
+Build output is written to `dist/`.
+
 On the first launch, the full Chess.com play page is shown so you can sign in and select a game. Once a game starts, the app automatically switches to board-only mode.
 
 ## Controls
@@ -40,18 +52,6 @@ Action shortcuts work while the mini window has focus. The defaults are:
 - Resign: `Ctrl+Alt+Q`
 
 Select `⚙`, click a shortcut, and press a new key combination to replace it. Changes are saved immediately. Any confirmation requested by Chess.com for draw or resign actions is preserved.
-
-## Build packages
-
-```bash
-# Linux AppImage
-npm run dist:linux
-
-# Windows installer and portable executable
-npm run dist:windows
-```
-
-Build output is written to `dist/`.
 
 ## Privacy and trademark
 
