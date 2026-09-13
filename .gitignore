@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+Chess Desktop Mini.desktop
+
+# Lokale Editor- und Betriebssystemdaten
+.idea/
+.vscode/

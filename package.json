@@ -1,0 +1,42 @@
+{
+  "name": "chess-desktop-mini",
+  "version": "1.1.0",
+  "description": "Ein minimalistisches, frei skalierbares Chess.com-Brett fuer den Desktop.",
+  "main": "src/main.js",
+  "desktopName": "chess-desktop-mini.desktop",
+  "author": "Chess Desktop Mini",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "check": "node --check src/main.js && node --check src/preload.js",
+    "dist": "electron-builder --linux AppImage"
+  },
+  "devDependencies": {
+    "electron": "latest",
+    "electron-builder": "latest"
+  },
+  "build": {
+    "appId": "de.chessdesktopmini.app",
+    "productName": "Chess Desktop Mini",
+    "asar": true,
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Game",
+      "icon": "assets/icon.png",
+      "executableName": "chess-desktop-mini",
+      "syncDesktopName": true,
+      "synopsis": "Minimalistisches Chess.com-Brett für den Desktop",
+      "artifactName": "Chess-Desktop-Mini-${version}.${ext}"
+    }
+  }
+}
