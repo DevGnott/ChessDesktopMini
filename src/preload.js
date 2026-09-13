@@ -14,10 +14,10 @@ const DEFAULT_SHORTCUTS = Object.freeze({
   resign: 'Control+Alt+KeyQ'
 });
 const SHORTCUT_ACTIONS = Object.freeze([
-  { id: 'rematch', label: 'Revanche' },
-  { id: 'newGame', label: 'Neue Partie' },
-  { id: 'draw', label: 'Remis anbieten' },
-  { id: 'resign', label: 'Aufgeben' }
+  { id: 'rematch', label: 'Rematch' },
+  { id: 'newGame', label: 'New game' },
+  { id: 'draw', label: 'Offer draw' },
+  { id: 'resign', label: 'Resign' }
 ]);
 
 let boardModeEnabled = true;
@@ -300,15 +300,15 @@ function shortcutFromEvent(event) {
 
 function displayShortcut(shortcut) {
   const names = {
-    Control: 'Strg',
+    Control: 'Ctrl',
     Alt: 'Alt',
-    Shift: 'Umschalt',
-    Meta: 'Super',
+    Shift: 'Shift',
+    Meta: 'Meta',
     ArrowUp: '↑',
     ArrowDown: '↓',
     ArrowLeft: '←',
     ArrowRight: '→',
-    Space: 'Leertaste'
+    Space: 'Space'
   };
 
   return shortcut.split('+').map((part) => {
@@ -340,7 +340,7 @@ async function saveShortcuts(nextShortcuts, message) {
     refreshShortcutButtons();
     setSettingsStatus(message);
   } catch {
-    setSettingsStatus('Speichern fehlgeschlagen', true);
+    setSettingsStatus('Could not save the shortcut', true);
   }
 }
 
@@ -349,9 +349,9 @@ function beginShortcutCapture(actionId) {
   for (const button of document.querySelectorAll(`#${TOOLBAR_ID} [data-shortcut-action]`)) {
     const selected = button.dataset.shortcutAction === actionId;
     button.dataset.capturing = String(selected);
-    button.textContent = selected ? 'Tasten drücken …' : displayShortcut(shortcuts[button.dataset.shortcutAction]);
+    button.textContent = selected ? 'Press keys …' : displayShortcut(shortcuts[button.dataset.shortcutAction]);
   }
-  setSettingsStatus('Neue Kombination drücken · Esc bricht ab');
+  setSettingsStatus('Press a new shortcut · Esc cancels');
 }
 
 function cancelShortcutCapture() {
@@ -360,17 +360,17 @@ function cancelShortcutCapture() {
     button.dataset.capturing = 'false';
   }
   refreshShortcutButtons();
-  setSettingsStatus('Kombination anklicken und neu eingeben');
+  setSettingsStatus('Click a shortcut to change it');
 }
 
 function createSettingsPanel() {
   const panel = document.createElement('div');
   panel.className = SETTINGS_CLASS;
-  panel.setAttribute('aria-label', 'Tastenkombinationen');
+  panel.setAttribute('aria-label', 'Keyboard shortcuts');
 
   const title = document.createElement('div');
   title.className = 'chess-mini-settings-title';
-  title.textContent = 'Tastenkombinationen';
+  title.textContent = 'Keyboard shortcuts';
   panel.appendChild(title);
 
   for (const action of SHORTCUT_ACTIONS) {
@@ -398,16 +398,16 @@ function createSettingsPanel() {
 
   const status = document.createElement('span');
   status.className = 'chess-mini-settings-status';
-  status.textContent = 'Kombination anklicken und neu eingeben';
+  status.textContent = 'Click a shortcut to change it';
 
   const reset = document.createElement('button');
   reset.type = 'button';
-  reset.textContent = 'Standard';
-  reset.title = 'Standardbelegung wiederherstellen';
+  reset.textContent = 'Reset';
+  reset.title = 'Restore default shortcuts';
   reset.addEventListener('click', (event) => {
     if (!isRealUserEvent(event)) return;
     capturingShortcut = null;
-    saveShortcuts({ ...DEFAULT_SHORTCUTS }, 'Standardbelegung wiederhergestellt');
+    saveShortcuts({ ...DEFAULT_SHORTCUTS }, 'Default shortcuts restored');
   });
 
   footer.append(status, reset);
@@ -446,26 +446,23 @@ function findGameControl(action) {
     rematch: [
       '[data-cy*="rematch" i]',
       '[data-testid*="rematch" i]',
-      '[aria-label*="Rematch" i]',
-      '[aria-label*="Revanche" i]'
+      '[aria-label*="Rematch" i]'
     ],
     draw: [
       '#board-controls-draw',
       '[data-cy*="draw" i]',
-      '[aria-label*="Offer Draw" i]',
-      '[aria-label*="Remis" i]'
+      '[aria-label*="Offer Draw" i]'
     ],
     resign: [
       '#board-controls-resign',
       '[data-cy*="resign" i]',
-      '[aria-label*="Resign" i]',
-      '[aria-label*="Aufgeben" i]'
+      '[aria-label*="Resign" i]'
     ]
   };
   const labels = {
-    rematch: /\b(rematch|revenge|revanche|revanchieren|erneut spielen|noch einmal)\b/i,
-    draw: /\b(offer draw|draw offer|remis anbieten|remis)\b/i,
-    resign: /\b(resign|give up|aufgeben)\b/i
+    rematch: /\b(rematch|revenge|play again)\b/i,
+    draw: /\b(offer draw|draw offer)\b/i,
+    resign: /\b(resign|give up)\b/i
   };
 
   for (const selector of selectors[action] || []) {
@@ -486,15 +483,15 @@ function performShortcutAction(action) {
   const control = findGameControl(action);
   if (!control) {
     const label = SHORTCUT_ACTIONS.find((candidate) => candidate.id === action)?.label || 'Aktion';
-    showToast(`${label}: Schaltfläche gerade nicht verfügbar`);
+    showToast(`${label}: button is not available right now`);
     return;
   }
 
   control.click();
   const messages = {
-    rematch: 'Revanche angefordert',
-    draw: 'Remis angeboten',
-    resign: 'Aufgeben geöffnet'
+    rematch: 'Rematch requested',
+    draw: 'Draw offered',
+    resign: 'Resign confirmation opened'
   };
   showToast(messages[action]);
 }
@@ -540,12 +537,12 @@ function injectToolbar() {
 
   const toolbar = document.createElement('div');
   toolbar.id = TOOLBAR_ID;
-  toolbar.setAttribute('aria-label', 'Chess Desktop Mini Steuerung');
+  toolbar.setAttribute('aria-label', 'Chess Desktop Mini controls');
 
-  const newGame = toolbarButton('＋', 'Neue Partie / Startseite');
+  const newGame = toolbarButton('＋', 'New game / home');
   newGame.addEventListener('click', (event) => sendAction('new-game', event));
 
-  const boardToggle = toolbarButton('▦', 'Nur Brett anzeigen (Strg+Umschalt+M)');
+  const boardToggle = toolbarButton('▦', 'Show board only (Ctrl+Shift+M)');
   boardToggle.dataset.action = 'board-toggle';
   boardToggle.addEventListener('click', (event) => {
     if (!isRealUserEvent(event)) return;
@@ -557,10 +554,10 @@ function injectToolbar() {
   const grip = document.createElement('div');
   grip.className = 'chess-mini-grip';
   grip.textContent = '•••';
-  grip.title = 'Fenster ziehen';
+  grip.title = 'Move window';
   attachManualDrag(grip);
 
-  const settingsButton = toolbarButton('⚙', 'Tastenkombinationen einstellen');
+  const settingsButton = toolbarButton('⚙', 'Configure keyboard shortcuts');
   settingsButton.dataset.action = 'settings';
   settingsButton.addEventListener('click', (event) => {
     if (!isRealUserEvent(event)) return;
@@ -569,17 +566,17 @@ function injectToolbar() {
     if (!open) cancelShortcutCapture();
   });
 
-  const pin = toolbarButton('⌖', 'Immer im Vordergrund');
+  const pin = toolbarButton('⌖', 'Always on top');
   pin.dataset.action = 'pin';
   pin.addEventListener('click', (event) => sendAction('toggle-pin', event));
 
-  const reload = toolbarButton('↻', 'Chess.com neu laden');
+  const reload = toolbarButton('↻', 'Reload Chess.com');
   reload.addEventListener('click', (event) => sendAction('reload', event));
 
-  const minimize = toolbarButton('−', 'Minimieren');
+  const minimize = toolbarButton('−', 'Minimize');
   minimize.addEventListener('click', (event) => sendAction('minimize', event));
 
-  const close = toolbarButton('×', 'Schließen', 'chess-mini-close');
+  const close = toolbarButton('×', 'Close', 'chess-mini-close');
   close.addEventListener('click', (event) => sendAction('close', event));
 
   const toast = document.createElement('div');
@@ -650,7 +647,7 @@ function applyBoardMode() {
   const toggle = document.querySelector(`#${TOOLBAR_ID} [data-action="board-toggle"]`);
   if (toggle) {
     toggle.dataset.active = String(active);
-    toggle.title = active ? 'Ganze Chess.com-Seite anzeigen' : 'Nur Brett anzeigen (Strg+Umschalt+M)';
+    toggle.title = active ? 'Show the full Chess.com page' : 'Show board only (Ctrl+Shift+M)';
   }
 
   if (active && (active !== boardOnlyActive || boardChanged)) {
@@ -704,12 +701,12 @@ function start() {
 
       const captured = shortcutFromEvent(event);
       if (!captured) {
-        setSettingsStatus('Bitte mindestens Strg, Alt oder Super mit einer Taste verwenden', true);
+        setSettingsStatus('Use Ctrl, Alt, or Meta together with another key', true);
         return;
       }
 
       if (captured === 'Control+Shift+KeyM' || captured === 'Shift+Meta+KeyM') {
-        setSettingsStatus('Strg + Umschalt + M ist für den Brettmodus reserviert', true);
+        setSettingsStatus('Ctrl + Shift + M is reserved for board-only mode', true);
         return;
       }
 
@@ -717,7 +714,7 @@ function start() {
         .find(([action, value]) => action !== capturingShortcut && value === captured);
       if (duplicate) {
         const label = SHORTCUT_ACTIONS.find((action) => action.id === duplicate[0])?.label;
-        setSettingsStatus(`Bereits für „${label}“ belegt`, true);
+        setSettingsStatus(`Already assigned to “${label}”`, true);
         return;
       }
 

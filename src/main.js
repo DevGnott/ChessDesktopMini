@@ -69,7 +69,7 @@ function readWindowState() {
       };
     }
   } catch {
-    // Beim ersten Start gibt es noch keinen gespeicherten Fensterzustand.
+    // There is no saved window state on the first launch.
   }
 
   return { width: DEFAULT_SIZE, height: DEFAULT_SIZE };
@@ -81,7 +81,7 @@ function saveWindowState() {
   try {
     fs.writeFileSync(settingsPath(), JSON.stringify(mainWindow.getBounds()));
   } catch (error) {
-    console.warn('Fensterposition konnte nicht gespeichert werden:', error.message);
+    console.warn('Could not save the window position:', error.message);
   }
 }
 

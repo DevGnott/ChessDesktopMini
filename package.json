@@ -1,7 +1,7 @@
 {
   "name": "chess-desktop-mini",
-  "version": "1.1.0",
-  "description": "Ein minimalistisches, frei skalierbares Chess.com-Brett fuer den Desktop.",
+  "version": "1.2.0",
+  "description": "A minimal, resizable Chess.com board for the desktop.",
   "main": "src/main.js",
   "desktopName": "chess-desktop-mini.desktop",
   "author": "Chess Desktop Mini",
@@ -9,7 +9,9 @@
   "scripts": {
     "start": "electron .",
     "check": "node --check src/main.js && node --check src/preload.js",
-    "dist": "electron-builder --linux AppImage"
+    "dist": "npm run dist:linux",
+    "dist:linux": "electron-builder --linux AppImage --x64",
+    "dist:windows": "electron-builder --win nsis portable --x64"
   },
   "devDependencies": {
     "electron": "latest",
@@ -35,8 +37,41 @@
       "icon": "assets/icon.png",
       "executableName": "chess-desktop-mini",
       "syncDesktopName": true,
-      "synopsis": "Minimalistisches Chess.com-Brett für den Desktop",
+      "synopsis": "Minimal Chess.com board for the desktop",
       "artifactName": "Chess-Desktop-Mini-${version}.${ext}"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "artifactName": "Chess-Desktop-Mini-Setup-${version}.${ext}",
+      "oneClick": false,
+      "language": "1033",
+      "installerLanguages": [
+        "en_US"
+      ],
+      "multiLanguageInstaller": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Chess Desktop Mini"
+    },
+    "portable": {
+      "artifactName": "Chess-Desktop-Mini-Portable-${version}.${ext}"
     }
   }
 }
