@@ -10,8 +10,8 @@
     "start": "electron .",
     "check": "node --check src/main.js && node --check src/preload.js",
     "dist": "npm run dist:linux",
-    "dist:linux": "electron-builder --linux AppImage --x64",
-    "dist:windows": "electron-builder --win nsis portable --x64"
+    "dist:linux": "electron-builder --linux AppImage --x64 --publish never",
+    "dist:windows": "electron-builder --win nsis portable --x64 --publish never"
   },
   "devDependencies": {
     "electron": "latest",
